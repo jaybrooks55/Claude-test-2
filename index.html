@@ -855,7 +855,7 @@
       <button class="tab" role="tab" aria-selected="true" aria-controls="p-news" id="t-news">Journalists &amp; Newsrooms</button>
       <button class="tab" role="tab" aria-selected="false" aria-controls="p-law" id="t-law">Law Enforcement &amp; DAs</button>
       <button class="tab" role="tab" aria-selected="false" aria-controls="p-ins" id="t-ins">Fraud &amp; Insurance</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="p-def" id="t-def">Defense Attorneys</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-fin" id="t-fin">Financial Institutions</button>
     </div>
 
     <div class="panel active" id="p-news" role="tabpanel" aria-labelledby="t-news">
@@ -915,21 +915,21 @@
       </div>
     </div>
 
-    <div class="panel" id="p-def" role="tabpanel" aria-labelledby="t-def" hidden>
+    <div class="panel" id="p-fin" role="tabpanel" aria-labelledby="t-fin" hidden>
       <div class="panel-inner">
         <div class="copy">
-          <div class="role-eyebrow">For defense attorneys</div>
-          <h3>Challenge media evidence on solid ground.</h3>
-          <p>If the case against your client rests on a video or recording, you need an independent expert read on whether it's genuine — and documentation to support the challenge.</p>
+          <div class="role-eyebrow">For banks, credit unions &amp; fintech</div>
+          <h3>Verify the voice before the money moves.</h3>
+          <p>A cloned voice can authorize a wire, and a synthetic face can pass an onboarding check. When media is part of how you approve money or identity, you need to know it's genuine before you act — not after the funds are gone.</p>
           <ul>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Independent analysis of media used against your client</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> A documented report to support a motion or cross</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Confidential, conflict-aware handling</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Check voice and video authorizations before high-value transfers</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Screen onboarding and KYC media for synthetic identities</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> A documented basis to pause, escalate, or deny a request</li>
           </ul>
         </div>
         <div class="panel-aside">
           <div class="scenario-label">The stakes</div>
-          <p class="scenario">The prosecution's key exhibit is a grainy clip presented as fact. <b>Find out whether it's authentic before you decide how to fight it.</b></p>
+          <p class="scenario">A caller with your executive's exact voice authorizes an urgent seven-figure wire. <b>Confirm it's really them before the money leaves the building.</b></p>
         </div>
       </div>
     </div>
@@ -1257,7 +1257,7 @@
   // ---- audience tabs ----
   var tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
   var panels = {
-    "t-news": "p-news", "t-law": "p-law", "t-ins": "p-ins", "t-def": "p-def"
+    "t-news": "p-news", "t-law": "p-law", "t-ins": "p-ins", "t-fin": "p-fin"
   };
   function selectTab(tab) {
     tabs.forEach(function (t) {
