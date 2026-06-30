@@ -41,6 +41,7 @@ create table if not exists public.cases (
   score                 int,             -- engine confidence 0-100
   analyst_verdict       text,            -- the HUMAN, defensible verdict (the thing you sell)
   analyst_verdict_reason text,           -- shown in the court-ready report
+  engine_results        jsonb,           -- raw output written by the analyze-case function
   file_hash             text,            -- SHA-256 chain of custody
   file_path             text,            -- path in the private storage bucket
   notes                 text,            -- analyst working notes

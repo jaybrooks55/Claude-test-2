@@ -34,8 +34,30 @@ Until keys are pasted, the portal runs in **Preview mode** with sample data so y
 can click around. The moment real keys are present, preview mode turns off and real
 login + database take over.
 
-The **Generate Report** button calls your existing `generate-report` Edge Function
-and downloads the PDF. If it is not deployed, the portal shows a friendly message.
+The **Generate Report** button calls your `generate-report` Edge Function and
+downloads the PDF. The portal sends a `{ case: {...} }` payload (id, client, type,
+urgency, analyst, date, verdict, score, file_hash, notes, analyst_verdict,
+analyst_verdict_reason, activity[]) — make sure the function reads that shape.
+
+## Detection pipeline (`analyze-case`)
+The portal never runs detection itself. When a case is submitted it uploads the
+file, hashes it, creates the case, then calls the **`analyze-case`** Edge Function,
+which runs the right engine server-side and writes the verdict + score back.
+
+1. Deploy it: `supabase functions deploy analyze-case` (code in
+   `backend/functions/analyze-case/index.ts`).
+2. Set the engine keys as **secrets** (never in the portal):
+   `supabase secrets set HIVE_KEY=... RESEMBLE_KEY=...`
+3. Confirm the two mapping helpers (`hiveAnalyze` / `resembleAnalyze`) against your
+   Hive and Resemble API docs/account — they are marked `TODO` because the exact
+   request/response shapes vary by account and version.
+
+Routing: image/video → Hive Moderation, audio → Resemble Detect. The result is
+written to `cases.verdict` / `cases.score` (and raw output to `cases.engine_results`),
+then the analyst reviews and sets the final **analyst verdict**.
+
+In **Preview mode** (no Supabase), submitting a case shows a clearly-labelled
+*simulated* result so you can see the flow; real detection only runs once connected.
 
 ---
 

@@ -32,6 +32,7 @@ var STORAGE_BUCKET = "case-files";
     profile: { name:"Analyst", role:"Verification Analyst" },
     density: "comfortable",
     notesTimer: null,
+    accessToken: null,
     paletteSel: 0, paletteList: []
   };
 
@@ -170,7 +171,7 @@ var STORAGE_BUCKET = "case-files";
     btn.disabled=true; var orig=btn.textContent; btn.innerHTML='<span class="spinner"></span>';
     sb.auth.signInWithPassword({ email:email, password:pass }).then(function(res){
       if(res.error){ setLoginMsg(res.error.message||"Sign-in failed. Check your credentials."); btn.disabled=false; btn.textContent=orig; return; }
-      state.user=res.data.user; enterApp();
+      state.user=res.data.user; state.accessToken=res.data.session?res.data.session.access_token:null; enterApp();
     }).catch(function(){ setLoginMsg("Could not reach the authentication server. Please try again."); btn.disabled=false; btn.textContent=orig; });
   }
   function handleSignOut(){
@@ -345,7 +346,7 @@ var STORAGE_BUCKET = "case-files";
       return sb.storage.from(STORAGE_BUCKET).upload(path,file,{ upsert:true }).then(function(up){ if(up.error) throw up.error; record.file_path=path; });
     }).then(function(){ return DB.createCase(record); })
       .then(function(saved){ return DB.addActivity({ action:"Opened new case", case_reference:record.reference, analyst:record.analyst }).then(function(){ return saved; }); })
-      .then(function(saved){ toast("Case "+record.reference+" created."); go("detail",saved.id); })
+      .then(function(saved){ toast("Case "+record.reference+" created."); go("detail",saved.id); runDetection(saved.id); })
       .catch(function(err){ btn.disabled=false; btn.innerHTML=orig; toast("Could not create case. "+(err&&err.message?err.message:""), true); });
   }
 
@@ -405,6 +406,11 @@ var STORAGE_BUCKET = "case-files";
     if(!c){ main.innerHTML='<div class="view-head"><h1>Case not found</h1></div>'+emptyState("file","That case could not be loaded.",'<button class="btn btn-ghost btn-sm" data-nav="cases">Back to cases</button>'); return; }
     var shown=displayVerdict(c); var vm=verdictMeta(shown);
     var source = (c.analyst_verdict && c.analyst_verdict!=="PENDING") ? "Analyst verdict — signed off by reviewer" : "Engine result — pending analyst sign-off";
+    var analyzing=!!c._analyzing;
+    var vmk = analyzing ? "v-cyan" : vm.vk;
+    var verdictVisual = analyzing
+      ? '<div class="vc-main"><div class="vc-verdict"><span class="spinner" style="width:14px;height:14px;border-top-color:var(--cyan)"></span><div><div class="vlabel">Result</div><div class="vval">Analyzing…</div></div></div><div class="vc-source">Detection stack is running…</div></div><div class="gauge" style="display:flex;align-items:center;justify-content:center"><span class="spinner" style="width:28px;height:28px;border-top-color:var(--cyan)"></span></div>'
+      : '<div class="vc-main"><div class="vc-verdict"><span class="vc-pip" style="background:'+vm.color+';box-shadow:0 0 0 4px '+vm.glow+'"></span><div><div class="vlabel">Result</div><div class="vval">'+esc(shown)+'</div></div></div><div class="vc-source">'+esc(source)+'</div></div>'+gauge(c.score, vm.color);
 
     main.innerHTML=
       '<button class="btn btn-ghost btn-sm" data-nav="cases" style="margin-bottom:18px;">'+icon("back",15)+' Back to cases</button>'
@@ -414,11 +420,8 @@ var STORAGE_BUCKET = "case-files";
 
       + '<div class="detail-grid"><div class="stack">'
 
-        + '<div class="card verdict-card '+vm.vk+'"><div class="vc-top"><span>Verdict</span><span>'+esc(c.reference)+'</span></div><div class="vc-body">'
-          + '<div class="vc-main"><div class="vc-verdict"><span class="vc-pip" style="background:'+vm.color+';box-shadow:0 0 0 4px '+vm.glow+'"></span>'
-          + '<div><div class="vlabel">Result</div><div class="vval">'+esc(shown)+'</div></div></div>'
-          + '<div class="vc-source">'+esc(source)+'</div></div>'
-          + gauge(c.score, vm.color)
+        + '<div class="card verdict-card '+vmk+'"><div class="vc-top"><span>Verdict</span><span>'+esc(c.reference)+'</span></div><div class="vc-body">'
+          + verdictVisual
         + '</div></div>'
 
         + '<div class="card"><div class="panel-head"><h3>Detection engines</h3><span class="label">Corroboration</span></div><div class="panel-body">'+engineRows(c)+'</div></div>'
@@ -484,7 +487,7 @@ var STORAGE_BUCKET = "case-files";
     var manip=displayVerdict(c)==="MANIPULATED";
     var pending=!c.verdict||c.verdict==="PENDING";
     var primary=(c.type==="audio")?{nm:"Resemble Detect",ty:"Audio / voice detection"}:{nm:"Hive Moderation",ty:"Image &amp; video detection"};
-    function res(){ if(pending) return '<span class="tag">Queued</span>'; return '<span class="tag '+(manip?"flag":"good")+'">'+(manip?"Flagged":"Clean")+(c.score!=null?" · "+esc(c.score)+"%":"")+'</span>'; }
+    function res(){ if(c._analyzing) return '<span class="tag warn"><span class="d"></span>Running</span>'; if(pending) return '<span class="tag">Queued</span>'; return '<span class="tag '+(manip?"flag":"good")+'">'+(manip?"Flagged":"Clean")+(c.score!=null?" · "+esc(c.score)+"%":"")+'</span>'; }
     return ''
       + '<div class="engine-row"><div><div class="en-nm">'+primary.nm+'</div><div class="en-ty">'+primary.ty+'</div></div>'+res()+'</div>'
       + '<div class="engine-row"><div><div class="en-nm">Reality Defender</div><div class="en-ty">Multi-modal detection</div></div><span class="tag">Planned</span></div>'
@@ -553,16 +556,30 @@ var STORAGE_BUCKET = "case-files";
   }
 
   /* ============================================================
-     REPORT (calls existing Edge Function; never builds the PDF here)
+     EDGE FUNCTION calls (report + detection).
+     This file never runs detection or builds a PDF itself — it
+     only calls the server-side functions and shows the result.
      ============================================================ */
+  function fnHeaders(){
+    return { "Authorization":"Bearer "+(state.accessToken||SUPABASE_PUBLISHABLE_KEY), "apikey":SUPABASE_PUBLISHABLE_KEY, "Content-Type":"application/json" };
+  }
+  // Matches the payload shape the generate-report Edge Function expects.
+  function reportPayload(c){
+    return {
+      id:c.reference, client:c.client, type:c.type, urgency:c.urgency||"standard",
+      analyst:c.analyst, date:fmtDate(c.created_at),
+      verdict:displayVerdict(c), score:c.score, file_hash:c.file_hash||null, notes:c.notes||"",
+      analyst_verdict:c.analyst_verdict||null, analyst_verdict_reason:c.analyst_verdict_reason||"",
+      activity: state.activity.filter(function(a){ return a.case_reference===c.reference; })
+        .map(function(a){ return { user:a.analyst||"", action:a.action, time:fmtTime(a.created_at) }; })
+    };
+  }
   function generateReport(id){
     var c=getCase(id);
     if(DEMO){ toast("Preview mode: connect Supabase to generate the real PDF.", true); return; }
     toast("Generating report…");
     fetch(SUPABASE_URL+"/functions/v1/generate-report",{
-      method:"POST",
-      headers:{ "Authorization":"Bearer "+SUPABASE_PUBLISHABLE_KEY, "apikey":SUPABASE_PUBLISHABLE_KEY, "Content-Type":"application/json" },
-      body:JSON.stringify({ case_id:id, reference:c.reference })
+      method:"POST", headers:fnHeaders(), body:JSON.stringify({ case: reportPayload(c) })
     }).then(function(resp){
       if(resp.status===404) throw new Error("The generate-report function is not deployed. Please deploy it in Supabase.");
       if(!resp.ok) throw new Error("Report service returned "+resp.status+".");
@@ -573,6 +590,40 @@ var STORAGE_BUCKET = "case-files";
       DB.addActivity({ action:"Generated report", case_reference:c.reference, analyst:state.profile.name });
       toast("Report downloaded.");
     }).catch(function(err){ toast(err&&err.message?err.message:"Could not generate the report.", true); });
+  }
+
+  // Kicks off the detection stack for a case. In real mode this calls the
+  // analyze-case Edge Function (which runs Hive / Resemble server-side and
+  // writes verdict + score back). In preview mode it simulates the flow.
+  function runDetection(id){
+    var c=getCase(id); if(!c) return;
+    c._analyzing=true; if(state.caseId===id) render();
+    if(DEMO){
+      setTimeout(function(){
+        if(!getCase(id)) return;
+        var base=(c.type==="audio")?58:52;
+        var score=Math.min(99, base+Math.floor(Math.random()*44));
+        var verdict=score>=70?"MANIPULATED":(score<=38?"AUTHENTIC":"INCONCLUSIVE");
+        c._analyzing=false;
+        DB.updateCase(id,{ verdict:verdict, score:score, status:"In Progress" }).then(function(){
+          return DB.addActivity({ action:"Automated analysis complete (simulated preview)", case_reference:c.reference, analyst:"Detection stack" });
+        }).then(function(){ if(state.caseId===id) render(); toast("Analysis complete (simulated — connect Supabase for real detection)."); });
+      }, 1700);
+      return;
+    }
+    fetch(SUPABASE_URL+"/functions/v1/analyze-case",{
+      method:"POST", headers:fnHeaders(), body:JSON.stringify({ case_id:id, file_path:c.file_path, type:c.type })
+    }).then(function(r){
+      if(!r.ok) return r.text().then(function(t){ throw new Error(t||("analyze-case returned "+r.status)); });
+      return r.json();
+    }).then(function(res){
+      c._analyzing=false;
+      if(res){ if(res.verdict!=null) c.verdict=res.verdict; if(res.score!=null) c.score=res.score; if(res.status) c.status=res.status; }
+      if(state.caseId===id) render(); toast("Detection complete.");
+    }).catch(function(err){
+      c._analyzing=false; if(state.caseId===id) render();
+      toast("Detection did not run: "+(err&&err.message?err.message:"error")+". Deploy analyze-case or review manually.", true);
+    });
   }
 
   /* ============================================================
@@ -699,7 +750,7 @@ var STORAGE_BUCKET = "case-files";
       : "Secured by Supabase Auth.";
 
     if(!DEMO && sb){
-      sb.auth.getSession().then(function(res){ if(res&&res.data&&res.data.session){ state.user=res.data.session.user; enterApp(); } }).catch(function(){});
+      sb.auth.getSession().then(function(res){ if(res&&res.data&&res.data.session){ state.user=res.data.session.user; state.accessToken=res.data.session.access_token; enterApp(); } }).catch(function(){});
     }
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
