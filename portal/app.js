@@ -176,7 +176,7 @@ var STORAGE_BUCKET = "case-files";
   }
   function handleSignOut(){
     if(sb && !DEMO){ sb.auth.signOut(); }
-    state.user=null; $("app").className=""; $("login").style.display="flex";
+    state.user=null; state.accessToken=null; $("app").className=""; $("login").style.display="flex";
     var b=$("loginBtn"); b.disabled=false; b.textContent="Sign in"; $("password").value="";
   }
   function enterApp(){
@@ -750,6 +750,10 @@ var STORAGE_BUCKET = "case-files";
       : "Secured by Supabase Auth.";
 
     if(!DEMO && sb){
+      // keep the access token fresh across automatic session refreshes
+      sb.auth.onAuthStateChange(function(_evt, session){
+        if(session){ state.accessToken=session.access_token; state.user=session.user; } else { state.accessToken=null; }
+      });
       sb.auth.getSession().then(function(res){ if(res&&res.data&&res.data.session){ state.user=res.data.session.user; state.accessToken=res.data.session.access_token; enterApp(); } }).catch(function(){});
     }
   }
