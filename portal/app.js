@@ -487,13 +487,35 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     }).join("");
   }
   function engineRows(c){
-    var manip=displayVerdict(c)==="MANIPULATED";
-    var pending=!c.verdict||c.verdict==="PENDING";
-    var primary=(c.type==="audio")?{nm:"Resemble Detect",ty:"Audio / voice detection"}:{nm:"Hive Moderation",ty:"Image &amp; video detection"};
-    function res(){ if(c._analyzing) return '<span class="tag warn"><span class="d"></span>Running</span>'; if(pending) return '<span class="tag">Queued</span>'; return '<span class="tag '+(manip?"flag":"good")+'">'+(manip?"Flagged":"Clean")+(c.score!=null?" · "+esc(c.score)+"%":"")+'</span>'; }
+    var er = Array.isArray(c.engine_results) ? c.engine_results : null;
+    var pending = !c.verdict || c.verdict==="PENDING";
+    function findEng(keys){
+      if(!er) return null;
+      for(var i=0;i<er.length;i++){ var e=er[i], k=(e.key||"").toLowerCase(), n=(e.name||"").toLowerCase();
+        for(var j=0;j<keys.length;j++){ if(k===keys[j] || n.indexOf(keys[j])!==-1) return e; } }
+      return null;
+    }
+    function verdictTag(verdict, score){
+      var m=verdict==="MANIPULATED", mid=verdict==="INCONCLUSIVE";
+      var cls=m?"flag":(mid?"warn":"good"), lbl=m?"Flagged":(mid?"Review":"Clean");
+      return '<span class="tag '+cls+'">'+lbl+(score!=null?" · "+esc(score)+"%":"")+'</span>';
+    }
+    function engTag(e, opts){
+      opts=opts||{};
+      if(c._analyzing) return '<span class="tag warn"><span class="d"></span>Running</span>';
+      if(e) return verdictTag(e.verdict, e.score);
+      if(opts.derive && !pending) return verdictTag(displayVerdict(c), c.score);   // older cases without per-engine data
+      if(opts.planned) return '<span class="tag">Planned</span>';
+      return pending ? '<span class="tag">Queued</span>' : '<span class="tag">&mdash;</span>';
+    }
+    var primary=(c.type==="audio")
+      ? {nm:"Resemble Detect", ty:"Audio / voice detection", keys:["resemble"]}
+      : {nm:"Hive Moderation", ty:"Image &amp; video detection", keys:["hive"]};
+    var pe = findEng(primary.keys);
+    var rd = findEng(["reality_defender","reality defender"]);
     return ''
-      + '<div class="engine-row"><div><div class="en-nm">'+primary.nm+'</div><div class="en-ty">'+primary.ty+'</div></div>'+res()+'</div>'
-      + '<div class="engine-row"><div><div class="en-nm">Reality Defender</div><div class="en-ty">Multi-modal detection</div></div><span class="tag">Planned</span></div>'
+      + '<div class="engine-row"><div><div class="en-nm">'+primary.nm+'</div><div class="en-ty">'+primary.ty+'</div></div>'+engTag(pe,{derive:true})+'</div>'
+      + '<div class="engine-row"><div><div class="en-nm">Reality Defender</div><div class="en-ty">Multi-modal detection</div></div>'+engTag(rd,{planned:true})+'</div>'
       + '<div class="engine-row"><div><div class="en-nm">Sensity AI</div><div class="en-ty">Deepfake detection</div></div><span class="tag">Planned</span></div>'
       + '<div class="engine-row human"><div><div class="en-nm accent">Human analyst review</div><div class="en-ty">Included on every case</div></div>'
       + (c.status==="Complete"?'<span class="tag good"><span class="d"></span>Confirmed</span>':'<span class="tag warn"><span class="d"></span>In review</span>')+'</div>';
@@ -609,11 +631,18 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     if(DEMO){
       setTimeout(function(){
         if(!getCase(id)) return;
+        function mv(s){ return s>=70?"MANIPULATED":(s<=38?"AUTHENTIC":"INCONCLUSIVE"); }
         var base=(c.type==="audio")?58:52;
-        var score=Math.min(99, base+Math.floor(Math.random()*44));
-        var verdict=score>=70?"MANIPULATED":(score<=38?"AUTHENTIC":"INCONCLUSIVE");
+        var pscore=Math.min(99, base+Math.floor(Math.random()*44));
+        var rdscore=Math.min(99, Math.max(5, pscore+Math.floor(Math.random()*20)-10));
+        var engines=[
+          { key:(c.type==="audio"?"resemble":"hive"), name:(c.type==="audio"?"Resemble Detect (audio)":"Hive AI-Generated & Deepfake Detection"), verdict:mv(pscore), score:pscore },
+          { key:"reality_defender", name:"Reality Defender", verdict:mv(rdscore), score:rdscore }
+        ];
+        var score=Math.max(pscore,rdscore);
+        var verdict=mv(score);
         c._analyzing=false;
-        DB.updateCase(id,{ verdict:verdict, score:score, status:"In Progress" }).then(function(){
+        DB.updateCase(id,{ verdict:verdict, score:score, status:"In Progress", engine_results:engines }).then(function(){
           return DB.addActivity({ action:"Automated analysis complete (simulated preview)", case_reference:c.reference, analyst:"Detection stack" });
         }).then(function(){ if(state.caseId===id) render(); toast("Analysis complete (simulated — connect Supabase for real detection)."); });
       }, 1700);
@@ -631,7 +660,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
         var v = data.verdict || "INCONCLUSIVE";
         var s = (data.manipulation_score!=null) ? data.manipulation_score : null;
         var eng = data.engine ? (data.engine.charAt(0).toUpperCase()+data.engine.slice(1)) : "Detection stack";
-        DB.updateCase(id,{ verdict:v, score:s, status:"In Progress" }).then(function(){
+        DB.updateCase(id,{ verdict:v, score:s, status:"In Progress", engine_results:(data.engines||null) }).then(function(){
           return DB.addActivity({ action:"Automated analysis — "+v+(s==null?"":" ("+s+")"), case_reference:c.reference, analyst:eng });
         }).then(function(){ if(state.caseId===id) render(); toast("Detection complete — "+v+"."); });
       } else {
