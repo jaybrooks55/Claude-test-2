@@ -52,6 +52,11 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
   function fmtTime(d){ var dt=new Date(d||Date.now()); return dt.toLocaleString("en-US",{ month:"short", day:"numeric", hour:"numeric", minute:"2-digit" }); }
   function timeAgo(d){ var s=Math.floor((Date.now()-new Date(d).getTime())/1000); if(isNaN(s)) return "";
     if(s<60) return s+"s ago"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago"; }
+  var MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function fmtDateDMY(d){ if(!d) return "—"; var dt=new Date(d); if(isNaN(dt.getTime())) return String(d); return String(dt.getDate()).padStart(2,"0")+" "+MONTHS[dt.getMonth()]+" "+dt.getFullYear(); }
+  // score stored per engine/case is P(manipulated) 0-100; confidence = how sure we are of the stated verdict
+  function confPct(verdict, manip){ if(manip==null) return null; return verdict==="AUTHENTIC" ? (100-manip) : manip; }
+  function dayKey(d){ var dt=new Date(d); return isNaN(dt.getTime())?"unknown":(dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0")); }
 
   var ICONS = {
     dashboard:'<path d="M3 13h8V3H3zM13 21h8V3h-8zM3 21h8v-6H3z"/>',
@@ -142,7 +147,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     state.clients=[{id:"c1",name:"Tribune Newsroom"},{id:"c2",name:"Harris County DA"},{id:"c3",name:"Meridian Insurance"},{id:"c4",name:"First Coastal Bank"}];
     state.cases=[
       {id:"d1",reference:"RV-2026-0007",client:"First Coastal Bank",type:"audio",urgency:"rush",analyst:"You",created_at:new Date(now-1*36e5).toISOString(),status:"In Progress",verdict:"MANIPULATED",score:93,analyst_verdict:null,analyst_verdict_reason:"",file_hash:"3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b",file_path:"cases/RV-2026-0007/wire-auth.wav",notes:"Caller voice shows synthesis artifacts in sibilants; awaiting second engine pass."},
-      {id:"d2",reference:"RV-2026-0006",client:"Tribune Newsroom",type:"video",urgency:"standard",analyst:"You",created_at:new Date(now-26*36e5).toISOString(),status:"Complete",verdict:"AUTHENTIC",score:88,analyst_verdict:"AUTHENTIC",analyst_verdict_reason:"No manipulation indicators across engines; metadata consistent. Cleared for publication.",file_hash:"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",file_path:"cases/RV-2026-0006/clip.mp4",notes:"No manipulation indicators across engines."},
+      {id:"d2",reference:"RV-2026-0006",client:"Tribune Newsroom",type:"video",urgency:"standard",analyst:"You",created_at:new Date(now-26*36e5).toISOString(),status:"Complete",verdict:"AUTHENTIC",score:9,analyst_verdict:"AUTHENTIC",analyst_verdict_reason:"No manipulation indicators across engines; metadata consistent. Cleared for publication.",file_hash:"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",file_path:"cases/RV-2026-0006/clip.mp4",notes:"No manipulation indicators across engines."},
       {id:"d3",reference:"RV-2026-0005",client:"Harris County DA",type:"video",urgency:"rush",analyst:"You",created_at:new Date(now-49*36e5).toISOString(),status:"Complete",verdict:"MANIPULATED",score:97,analyst_verdict:"MANIPULATED",analyst_verdict_reason:"Face-swap signatures confirmed across two engines and on manual frame review.",file_hash:"2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",file_path:"cases/RV-2026-0005/exhibit.mp4",notes:"Face-swap signatures confirmed. Full report delivered."},
       {id:"d4",reference:"RV-2026-0004",client:"Meridian Insurance",type:"image",urgency:"standard",analyst:"You",created_at:new Date(now-73*36e5).toISOString(),status:"Open",verdict:"PENDING",score:null,analyst_verdict:null,analyst_verdict_reason:"",file_hash:"da39a3ee5e6b4b0d3255bfef95601890afd80709b1c4f0c8d9e7a2f1b3c5d6e7",file_path:"cases/RV-2026-0004/claim.jpg",notes:""},
       {id:"d5",reference:"RV-2026-0003",client:"Meridian Insurance",type:"image",urgency:"standard",analyst:"You",created_at:new Date(now-99*36e5).toISOString(),status:"Complete",verdict:"INCONCLUSIVE",score:54,analyst_verdict:"INCONCLUSIVE",analyst_verdict_reason:"Compression too heavy for a confident call; requested original.",file_hash:"5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",file_path:"cases/RV-2026-0003/photo.jpg",notes:"Recommended re-submission of original."}
@@ -186,8 +191,9 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     $("login").style.display="none"; $("app").className="show";
     $("demoBanner").className="demo-banner"+(DEMO?" show":"");
     if(state.user && state.user.email){
-      state.profile.name=(state.user.user_metadata && state.user.user_metadata.name) || state.profile.name;
-      $("topUser").textContent=state.user.email;
+      var md=state.user.user_metadata||{};
+      state.profile.name = md.name || state.profile.name;
+      state.profile.role = md.role || state.profile.role;
     }
     refreshUserChrome(); buildNav();
     state.loading=true; render();
@@ -198,6 +204,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     var name=state.profile.name||"Analyst";
     var initials=name.split(/\s+/).map(function(p){ return p.charAt(0); }).join("").slice(0,2).toUpperCase()||"RA";
     $("sideAvatar").textContent=initials; $("sideName").textContent=name; $("sideRole").textContent=state.profile.role||"Revlar";
+    var tu=$("topUser"); if(tu) tu.textContent=name;
   }
 
   /* ============================================================
@@ -273,7 +280,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     var total=state.cases.length;
     var active=state.cases.filter(function(c){ return c.status==="In Progress"||c.status==="Open"; }).length;
     var done=state.cases.filter(function(c){ return c.status==="Complete"; }).length;
-    var revenue=done*200;
+    var awaiting=state.cases.filter(function(c){ return c.status!=="Complete" && c.verdict && c.verdict!=="PENDING" && !(c.analyst_verdict && c.analyst_verdict!=="PENDING"); }).length;
     var hour=new Date().getHours();
     var greet=hour<12?"Good morning":(hour<18?"Good afternoon":"Good evening");
     var name=(state.profile.name||"Analyst").split(/\s+/)[0];
@@ -295,7 +302,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
         + statCard("Total Cases",total,"All time","cases")
         + statCard("Active",active,"Open or in progress","clock")
         + statCard("Completed",done,"Reports delivered","check")
-        + statCard("Est. Revenue",fmtMoney(revenue),"Completed × $200","money")
+        + statCard("Awaiting Review",awaiting,"Ready for your sign-off","user")
       + '</div>'
       + '<div class="grid-2">'
         + '<div class="card"><div class="panel-head"><h3>Recent cases</h3><button class="btn btn-ghost btn-sm" data-nav="cases">View all</button></div><div class="panel-body">'+recentRows+'</div></div>'
@@ -312,7 +319,10 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     main.innerHTML=
       '<div class="view-head"><h1>New Submission</h1><p>Open a case. The file is hashed (SHA-256) for chain of custody before upload.</p></div>'
       + '<div class="card" style="max-width:640px;padding:24px;"><form id="submitForm" class="stack">'
-        + '<div class="field"><label for="s-client">Client / Organization</label><input id="s-client" list="clientList" placeholder="Organization name" required/><datalist id="clientList">'+clientOpts+'</datalist></div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">'
+          + '<div class="field"><label for="s-client">Client / Organization</label><input id="s-client" list="clientList" placeholder="Organization name" required/><datalist id="clientList">'+clientOpts+'</datalist></div>'
+          + '<div class="field"><label for="s-clientref">Client reference <span style="text-transform:none;color:var(--muted-2)">(optional)</span></label><input id="s-clientref" placeholder="Their case / claim number"/></div>'
+        + '</div>'
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">'
           + '<div class="field"><label for="s-type">Content type</label><select id="s-type"><option value="video">Video</option><option value="audio">Audio</option><option value="image">Image</option></select></div>'
           + '<div class="field"><label for="s-urgency">Urgency</label><select id="s-urgency"><option value="standard">Standard</option><option value="rush">Rush</option></select></div>'
@@ -339,7 +349,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     e.preventDefault();
     var btn=$("submitBtn"); btn.disabled=true; var orig=btn.innerHTML; btn.innerHTML='<span class="spinner"></span> Working…';
     var file=$("s-file").files[0];
-    var record={ client:$("s-client").value.trim(), type:$("s-type").value, urgency:$("s-urgency").value,
+    var record={ client:$("s-client").value.trim(), client_ref:($("s-clientref").value||"").trim(), type:$("s-type").value, urgency:$("s-urgency").value,
       analyst:state.profile.name||"Analyst", status:"Open", verdict:"PENDING", score:null, analyst_verdict:null, analyst_verdict_reason:"",
       created_at:new Date().toISOString(), notes:"" };
     Promise.all([ nextRef(), sha256(file) ]).then(function(vals){
@@ -392,7 +402,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
         + '<td style="text-transform:capitalize">'+esc(c.type)+'</td>'
         + '<td><span class="tag '+statusTagClass(c.status)+'">'+esc(c.status)+'</span></td>'
         + '<td><span class="tag '+vm.cls+'">'+esc(displayVerdict(c))+'</span></td>'
-        + '<td><span class="score">'+(c.score==null?"—":esc(c.score)+"%")+'</span></td>'
+        + '<td><span class="score">'+(c.score==null?"—":esc(confPct(displayVerdict(c), c.score))+"%")+'</span></td>'
         + '<td class="mono" style="font-size:12px;color:var(--muted)">'+fmtDate(c.created_at)+'</td>'
         + '<td><button class="btn btn-ghost btn-sm" data-open="'+esc(c.id)+'">View</button></td></tr>';
     }).join("");
@@ -413,7 +423,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     var vmk = analyzing ? "v-cyan" : vm.vk;
     var verdictVisual = analyzing
       ? '<div class="vc-main"><div class="vc-verdict"><span class="spinner" style="width:14px;height:14px;border-top-color:var(--cyan)"></span><div><div class="vlabel">Result</div><div class="vval">Analyzing…</div></div></div><div class="vc-source">Detection stack is running…</div></div><div class="gauge" style="display:flex;align-items:center;justify-content:center"><span class="spinner" style="width:28px;height:28px;border-top-color:var(--cyan)"></span></div>'
-      : '<div class="vc-main"><div class="vc-verdict"><span class="vc-pip" style="background:'+vm.color+';box-shadow:0 0 0 4px '+vm.glow+'"></span><div><div class="vlabel">Result</div><div class="vval">'+esc(shown)+'</div></div></div><div class="vc-source">'+esc(source)+'</div></div>'+gauge(c.score, vm.color);
+      : '<div class="vc-main"><div class="vc-verdict"><span class="vc-pip" style="background:'+vm.color+';box-shadow:0 0 0 4px '+vm.glow+'"></span><div><div class="vlabel">Result</div><div class="vval">'+esc(shown)+'</div></div></div><div class="vc-source">'+esc(source)+'</div></div>'+gauge(confPct(shown, c.score), vm.color);
 
     main.innerHTML=
       '<button class="btn btn-ghost btn-sm" data-nav="cases" style="margin-bottom:18px;">'+icon("back",15)+' Back to cases</button>'
@@ -447,6 +457,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
 
         + '<div class="card"><div class="panel-head"><h3>Case file</h3></div><div class="panel-body"><div class="meta-list">'
           + metaRow("Client",esc(c.client))
+          + (c.client_ref ? metaRow("Client ref", '<span class="mono">'+esc(c.client_ref)+'</span>') : "")
           + metaRow("Type",'<span style="text-transform:capitalize">'+esc(c.type)+'</span>')
           + metaRow("Urgency",'<span class="tag '+(c.urgency==="rush"?"flag":"cyan")+'">'+esc(c.urgency||"standard")+'</span>')
           + metaRow("Analyst",esc(c.analyst||"—"))
@@ -495,10 +506,11 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
         for(var j=0;j<keys.length;j++){ if(k===keys[j] || n.indexOf(keys[j])!==-1) return e; } }
       return null;
     }
-    function verdictTag(verdict, score){
+    function verdictTag(verdict, manip){
       var m=verdict==="MANIPULATED", mid=verdict==="INCONCLUSIVE";
       var cls=m?"flag":(mid?"warn":"good"), lbl=m?"Flagged":(mid?"Review":"Clean");
-      return '<span class="tag '+cls+'">'+lbl+(score!=null?" · "+esc(score)+"%":"")+'</span>';
+      var pct=confPct(verdict, manip);
+      return '<span class="tag '+cls+'">'+lbl+(pct!=null?" · "+esc(pct)+"%":"")+'</span>';
     }
     function engTag(e, opts){
       opts=opts||{};
@@ -520,7 +532,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
       + row("Reality Defender", "Multi-modal detection", engTag(rd,{planned:true}))
       + row("Sensity AI", "Deepfake detection", '<span class="tag">Planned</span>')
       + '<div class="engine-row human"><div><div class="en-nm accent">Human analyst review</div><div class="en-ty">Included on every case</div></div>'
-      + (c.status==="Complete"?'<span class="tag good"><span class="d"></span>Confirmed</span>':'<span class="tag warn"><span class="d"></span>In review</span>')+'</div>';
+      + ((c.analyst_verdict && c.analyst_verdict!=="PENDING")?'<span class="tag good"><span class="d"></span>Confirmed</span>':'<span class="tag warn"><span class="d"></span>In review</span>')+'</div>';
   }
   function metaRow(k,v){ return '<div class="meta-row"><span class="k">'+esc(k)+'</span><span class="v">'+v+'</span></div>'; }
   function runBtn(c){
@@ -598,8 +610,8 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
   // Matches the payload shape the generate-report Edge Function expects.
   function reportPayload(c){
     return {
-      id:c.reference, client:c.client, type:c.type, urgency:c.urgency||"standard",
-      analyst:c.analyst, date:fmtDate(c.created_at),
+      id:c.reference, client_ref:c.client_ref||null, client:c.client, type:c.type, urgency:c.urgency||"standard",
+      analyst:c.analyst, date:fmtDateDMY(c.created_at),
       verdict:displayVerdict(c), score:c.score, file_hash:c.file_hash||null, notes:c.notes||"",
       analyst_verdict:c.analyst_verdict||null, analyst_verdict_reason:c.analyst_verdict_reason||"",
       activity: state.activity.filter(function(a){ return a.case_reference===c.reference; })
@@ -689,10 +701,25 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
       + (list.length?'<div class="clients-grid">'+list.map(function(n){ var cnt=counts[n]||0; return '<div class="card client-card" data-client="'+esc(n)+'"><div class="cc-nm">'+esc(n)+'</div><div class="cc-meta">'+cnt+' case'+(cnt===1?"":"s")+'</div></div>'; }).join("")+'</div>':emptyState("clients","No clients yet"));
   }
   function renderActivity(main){
-    var items=state.activity.slice(0,100);
-    main.innerHTML='<div class="view-head"><h1>Activity Log</h1><p>A chronological record of analyst actions.</p></div><div class="card"><div class="panel-body">'
-      + (items.length?'<div class="feed">'+items.map(function(a){ return '<div class="feed-item"><div class="feed-dot"></div><div style="flex:1"><div class="feed-txt">'+esc(a.action)+(a.case_reference?' · <span class="accent mono" style="font-size:12.5px">'+esc(a.case_reference)+'</span>':"")+'</div><div class="feed-time">'+fmtTime(a.created_at)+(a.analyst?" · "+esc(a.analyst):"")+'</div></div></div>'; }).join("")+'</div>':emptyState("activity","No activity yet"))
-      + '</div></div>';
+    var items=state.activity.slice(0,300);
+    function feedHtml(list){ return '<div class="feed">'+list.map(function(a){ return '<div class="feed-item"><div class="feed-dot"></div><div style="flex:1"><div class="feed-txt">'+esc(a.action)+(a.case_reference?' · <span class="accent mono" style="font-size:12.5px">'+esc(a.case_reference)+'</span>':"")+'</div><div class="feed-time">'+fmtTime(a.created_at)+(a.analyst?" · "+esc(a.analyst):"")+'</div></div></div>'; }).join("")+'</div>'; }
+    var head='<div class="view-head"><h1>Activity Log</h1><p>A chronological record of analyst actions, grouped by day.</p></div>';
+    if(!items.length){ main.innerHTML=head+'<div class="card"><div class="panel-body">'+emptyState("activity","No activity yet")+'</div></div>'; return; }
+    var groups={}, order=[];
+    items.forEach(function(a){ var k=dayKey(a.created_at); if(!groups[k]){ groups[k]=[]; order.push(k); } groups[k].push(a); });
+    var todayK=dayKey(new Date().toISOString());
+    function dayLabel(k){ if(k==="unknown") return "Earlier"; var d=new Date(k+"T00:00:00"); return isNaN(d.getTime())?k:d.toLocaleDateString("en-US",{ weekday:"long", month:"short", day:"numeric", year:"numeric" }); }
+    var html=head+'<div class="stack">';
+    order.forEach(function(k){
+      var n=groups[k].length, lbl=n+" event"+(n===1?"":"s");
+      if(k===todayK){
+        html+='<div class="card"><div class="panel-head"><h3>Today</h3><span class="label">'+lbl+'</span></div><div class="panel-body">'+feedHtml(groups[k])+'</div></div>';
+      } else {
+        html+='<details class="card daygroup"><summary><span class="dg-caret">&#9656;</span><span class="dg-date">'+esc(dayLabel(k))+'</span><span class="dg-count">'+lbl+'</span></summary><div class="panel-body" style="padding-top:0">'+feedHtml(groups[k])+'</div></details>';
+      }
+    });
+    html+='</div>';
+    main.innerHTML=html;
   }
   function renderSettings(main){
     var theme=document.documentElement.getAttribute("data-theme");
@@ -705,7 +732,13 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
         + '<div class="field"><label>Appearance</label><div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" data-theme-set="dark"'+(theme==="dark"?' style="border-color:var(--cyan);color:var(--cyan-bright)"':"")+'>Night</button><button class="btn btn-ghost btn-sm" data-theme-set="light"'+(theme==="light"?' style="border-color:var(--cyan);color:var(--cyan-bright)"':"")+'>Light</button></div></div>'
         + '<div><button class="btn btn-primary" id="saveProfile">Save profile</button></div>'
       + '</div></div>';
-    $("saveProfile").addEventListener("click",function(){ state.profile.name=$("set-name").value.trim()||"Analyst"; state.profile.role=$("set-role").value.trim()||"Revlar"; refreshUserChrome(); toast("Profile saved."); });
+    $("saveProfile").addEventListener("click",function(){
+      state.profile.name=$("set-name").value.trim()||"Analyst";
+      state.profile.role=$("set-role").value.trim()||"Revlar";
+      try{ localStorage.setItem("revlar-profile", JSON.stringify(state.profile)); }catch(e){}
+      if(!DEMO && sb){ sb.auth.updateUser({ data:{ name:state.profile.name, role:state.profile.role } }).catch(function(){}); }
+      refreshUserChrome(); toast("Profile saved.");
+    });
   }
 
   /* ============================================================
@@ -793,6 +826,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     var savedTheme="dark"; try{ savedTheme=localStorage.getItem("revlar-theme")||"dark"; }catch(e){}
     applyTheme(savedTheme);
     try{ state.density=localStorage.getItem("revlar-density")||"comfortable"; }catch(e){}
+    try{ var sp=JSON.parse(localStorage.getItem("revlar-profile")||"null"); if(sp){ state.profile.name=sp.name||state.profile.name; state.profile.role=sp.role||state.profile.role; } }catch(e){}
 
     $("loginForm").addEventListener("submit",handleLogin);
     $("paletteInput").addEventListener("input",function(){ state.paletteSel=0; drawPalette(this.value); });

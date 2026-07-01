@@ -288,6 +288,16 @@ table.compact tbody td{ padding:8px 14px; font-size:13px; }
 .client-card .cc-nm{ font-size:16px; font-weight:650; }
 .client-card .cc-meta{ color:var(--muted-2); font-size:12.5px; margin-top:6px; font-family:var(--mono); }
 
+/* activity day-folders */
+.daygroup{ overflow:hidden; }
+.daygroup > summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:12px; padding:16px 18px; }
+.daygroup > summary::-webkit-details-marker{ display:none; }
+.daygroup > summary:hover{ background:var(--navy-750); }
+.daygroup .dg-caret{ color:var(--cyan); display:inline-block; transition:transform .2s ease; font-size:12px; }
+.daygroup[open] .dg-caret{ transform:rotate(90deg); }
+.daygroup .dg-date{ font-weight:650; font-size:15px; }
+.daygroup .dg-count{ margin-left:auto; font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--muted-2); }
+
 .empty{ text-align:center; padding:48px 20px; color:var(--muted-2); }
 .empty svg{ width:34px; height:34px; margin-bottom:12px; color:var(--muted-2); }
 .empty .btn{ margin-top:16px; }

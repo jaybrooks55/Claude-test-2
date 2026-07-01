@@ -33,6 +33,7 @@ create table if not exists public.cases (
   id                    uuid primary key default gen_random_uuid(),
   reference             text unique not null,
   client                text not null,
+  client_ref            text,            -- optional reference the client/customer provided
   type                  text not null check (type in ('video','audio','image')),
   urgency               text not null default 'standard' check (urgency in ('standard','rush')),
   status                text not null default 'Open'
