@@ -8,8 +8,8 @@
    The publishable (anon) key is safe to be public.
    NEVER put a service-role key in this file.
    ============================================================ */
-var SUPABASE_URL = "YOUR_SUPABASE_URL_HERE";
-var SUPABASE_PUBLISHABLE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
+var SUPABASE_URL = "https://etzdbktxjjgnojirkpso.supabase.co";
+var SUPABASE_PUBLISHABLE_KEY = "sb_publishable_J2llDj6tR1DUDyYAIi9bsg_sCSjBFIV";
 var STORAGE_BUCKET = "case-files";
 
 (function(){
