@@ -502,21 +502,23 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     }
     function engTag(e, opts){
       opts=opts||{};
+      if(opts.na) return '<span class="tag">'+esc(opts.na)+'</span>';                // not applicable to this media type
       if(c._analyzing) return '<span class="tag warn"><span class="d"></span>Running</span>';
       if(e) return verdictTag(e.verdict, e.score);
-      if(opts.derive && !pending) return verdictTag(displayVerdict(c), c.score);   // older cases without per-engine data
+      if(opts.derive && !pending) return verdictTag(displayVerdict(c), c.score);      // older cases without per-engine data
       if(opts.planned) return '<span class="tag">Planned</span>';
       return pending ? '<span class="tag">Queued</span>' : '<span class="tag">&mdash;</span>';
     }
-    var primary=(c.type==="audio")
-      ? {nm:"Resemble Detect", ty:"Audio / voice detection", keys:["resemble"]}
-      : {nm:"Hive Moderation", ty:"Image &amp; video detection", keys:["hive"]};
-    var pe = findEng(primary.keys);
+    var isAudio = c.type==="audio";
+    var hive = findEng(["hive"]);
+    var resemble = findEng(["resemble"]);
     var rd = findEng(["reality_defender","reality defender"]);
+    function row(nm, ty, tag){ return '<div class="engine-row"><div><div class="en-nm">'+nm+'</div><div class="en-ty">'+ty+'</div></div>'+tag+'</div>'; }
     return ''
-      + '<div class="engine-row"><div><div class="en-nm">'+primary.nm+'</div><div class="en-ty">'+primary.ty+'</div></div>'+engTag(pe,{derive:true})+'</div>'
-      + '<div class="engine-row"><div><div class="en-nm">Reality Defender</div><div class="en-ty">Multi-modal detection</div></div>'+engTag(rd,{planned:true})+'</div>'
-      + '<div class="engine-row"><div><div class="en-nm">Sensity AI</div><div class="en-ty">Deepfake detection</div></div><span class="tag">Planned</span></div>'
+      + row("Hive Moderation", "Image &amp; video detection", isAudio ? engTag(null,{na:"Image/video only"}) : engTag(hive,{derive:true}))
+      + row("Resemble AI", "Audio / voice detection", isAudio ? engTag(resemble,{derive:true}) : engTag(null,{na:"Audio only"}))
+      + row("Reality Defender", "Multi-modal detection", engTag(rd,{planned:true}))
+      + row("Sensity AI", "Deepfake detection", '<span class="tag">Planned</span>')
       + '<div class="engine-row human"><div><div class="en-nm accent">Human analyst review</div><div class="en-ty">Included on every case</div></div>'
       + (c.status==="Complete"?'<span class="tag good"><span class="d"></span>Confirmed</span>':'<span class="tag warn"><span class="d"></span>In review</span>')+'</div>';
   }
