@@ -427,7 +427,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
           + verdictVisual
         + '</div></div>'
 
-        + '<div class="card"><div class="panel-head"><h3>Detection engines</h3><span class="label">Corroboration</span></div><div class="panel-body">'+engineRows(c)+'</div></div>'
+        + '<div class="card"><div class="panel-head"><h3>Detection engines</h3>'+runBtn(c)+'</div><div class="panel-body">'+engineRows(c)+'</div></div>'
 
         + '<div class="card"><div class="panel-head"><h3>Analyst verdict</h3></div><div class="panel-body"><div class="av-grid">'
           + '<div class="field"><label for="avSelect">Final verdict</label><select id="avSelect">'+verdictOptions(c.analyst_verdict)+'</select></div>'
@@ -499,6 +499,11 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
       + (c.status==="Complete"?'<span class="tag good"><span class="d"></span>Confirmed</span>':'<span class="tag warn"><span class="d"></span>In review</span>')+'</div>';
   }
   function metaRow(k,v){ return '<div class="meta-row"><span class="k">'+esc(k)+'</span><span class="v">'+v+'</span></div>'; }
+  function runBtn(c){
+    if(c._analyzing) return '<button class="btn btn-ghost btn-sm" disabled><span class="spinner" style="width:12px;height:12px;border-top-color:var(--cyan)"></span> Analyzing…</button>';
+    var label=(!c.verdict || c.verdict==="PENDING") ? "Run detection" : "Re-run detection";
+    return '<button class="btn btn-ghost btn-sm" data-rundetect="'+esc(c.id)+'">'+icon("activity",14)+' '+label+'</button>';
+  }
 
   function statusPipeline(c){
     var steps=["Open","In Progress","Complete"];
@@ -614,6 +619,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
       }, 1700);
       return;
     }
+    if(!c.file_path){ c._analyzing=false; if(state.caseId===id) render(); toast("This case has no uploaded file to analyze.", true); return; }
     // super-api takes { case_ref, file_path } and routes by file extension.
     fetch(SUPABASE_URL+"/functions/v1/"+DETECTION_FUNCTION,{
       method:"POST", headers:fnHeaders(), body:JSON.stringify({ case_ref:c.reference, file_path:c.file_path })
@@ -721,6 +727,7 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
     if((t=e.target.closest("[data-status]")))     { setStatus(t.getAttribute("data-id"),t.getAttribute("data-status"),t.getAttribute("data-confirm")==="1"); return; }
     if((t=e.target.closest("[data-saveverdict]"))){ saveVerdict(t.getAttribute("data-saveverdict")); return; }
     if((t=e.target.closest("[data-report]")))     { generateReport(t.getAttribute("data-report")); return; }
+    if((t=e.target.closest("[data-rundetect]")))  { runDetection(t.getAttribute("data-rundetect")); return; }
     if((t=e.target.closest("[data-copy]")))       { copyText(t.getAttribute("data-copy")); return; }
     if((t=e.target.closest("[data-client]")))     { go("cases"); setTimeout(function(){ var s=$("caseSearch"); if(s){ s.value=t.getAttribute("data-client"); drawCaseRows(); } },30); return; }
     if((t=e.target.closest("[data-theme-set]")))  { applyTheme(t.getAttribute("data-theme-set")); render(); return; }
