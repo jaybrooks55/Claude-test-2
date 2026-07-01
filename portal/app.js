@@ -11,6 +11,9 @@
 var SUPABASE_URL = "https://etzdbktxjjgnojirkpso.supabase.co";
 var SUPABASE_PUBLISHABLE_KEY = "sb_publishable_J2llDj6tR1DUDyYAIi9bsg_sCSjBFIV";
 var STORAGE_BUCKET = "case-files";
+// Edge Function names in your Supabase project.
+var DETECTION_FUNCTION = "super-api";      // runs Hive / Resemble / AI, returns verdict + score
+var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
 
 (function(){
   /* ---------- runtime mode ---------- */
@@ -578,7 +581,7 @@ var STORAGE_BUCKET = "case-files";
     var c=getCase(id);
     if(DEMO){ toast("Preview mode: connect Supabase to generate the real PDF.", true); return; }
     toast("Generating report…");
-    fetch(SUPABASE_URL+"/functions/v1/generate-report",{
+    fetch(SUPABASE_URL+"/functions/v1/"+REPORT_FUNCTION,{
       method:"POST", headers:fnHeaders(), body:JSON.stringify({ case: reportPayload(c) })
     }).then(function(resp){
       if(resp.status===404) throw new Error("The generate-report function is not deployed. Please deploy it in Supabase.");
@@ -592,9 +595,9 @@ var STORAGE_BUCKET = "case-files";
     }).catch(function(err){ toast(err&&err.message?err.message:"Could not generate the report.", true); });
   }
 
-  // Kicks off the detection stack for a case. In real mode this calls the
-  // analyze-case Edge Function (which runs Hive / Resemble server-side and
-  // writes verdict + score back). In preview mode it simulates the flow.
+  // Kicks off the detection stack for a case. In real mode this calls your
+  // super-api Edge Function (Hive / Resemble / AI, server-side), then writes
+  // the returned verdict + score onto the case. In preview mode it simulates.
   function runDetection(id){
     var c=getCase(id); if(!c) return;
     c._analyzing=true; if(state.caseId===id) render();
@@ -611,18 +614,30 @@ var STORAGE_BUCKET = "case-files";
       }, 1700);
       return;
     }
-    fetch(SUPABASE_URL+"/functions/v1/analyze-case",{
-      method:"POST", headers:fnHeaders(), body:JSON.stringify({ case_id:id, file_path:c.file_path, type:c.type })
+    // super-api takes { case_ref, file_path } and routes by file extension.
+    fetch(SUPABASE_URL+"/functions/v1/"+DETECTION_FUNCTION,{
+      method:"POST", headers:fnHeaders(), body:JSON.stringify({ case_ref:c.reference, file_path:c.file_path })
     }).then(function(r){
-      if(!r.ok) return r.text().then(function(t){ throw new Error(t||("analyze-case returned "+r.status)); });
-      return r.json();
-    }).then(function(res){
+      return r.json().catch(function(){ throw new Error("detection returned an unreadable response ("+r.status+")"); });
+    }).then(function(data){
       c._analyzing=false;
-      if(res){ if(res.verdict!=null) c.verdict=res.verdict; if(res.score!=null) c.score=res.score; if(res.status) c.status=res.status; }
-      if(state.caseId===id) render(); toast("Detection complete.");
+      if(data && data.ok){
+        var v = data.verdict || "INCONCLUSIVE";
+        var s = (data.manipulation_score!=null) ? data.manipulation_score : null;
+        var eng = data.engine ? (data.engine.charAt(0).toUpperCase()+data.engine.slice(1)) : "Detection stack";
+        DB.updateCase(id,{ verdict:v, score:s, status:"In Progress" }).then(function(){
+          return DB.addActivity({ action:"Automated analysis — "+v+(s==null?"":" ("+s+")"), case_reference:c.reference, analyst:eng });
+        }).then(function(){ if(state.caseId===id) render(); toast("Detection complete — "+v+"."); });
+      } else {
+        // super-api reports some failures with HTTP 200 + an error/debug field
+        var msg = (data && (data.error || (data.debug ? ("engine error: "+data.debug) : null))) || "Detection did not return a result.";
+        if(data && data.available_files){ msg += " (file not found in storage)"; }
+        if(state.caseId===id) render();
+        toast(msg, true);
+      }
     }).catch(function(err){
       c._analyzing=false; if(state.caseId===id) render();
-      toast("Detection did not run: "+(err&&err.message?err.message:"error")+". Deploy analyze-case or review manually.", true);
+      toast("Detection failed: "+(err&&err.message?err.message:"error")+".", true);
     });
   }
 

@@ -81,6 +81,21 @@ drop trigger if exists activity_no_change on public.activity_log;
 create trigger activity_no_change before update or delete on public.activity_log
   for each row execute function public.block_mutation();
 
+-- ---------- 4b. Tool results (per-engine raw output) ----------
+-- The super-api / analyze-case detection function writes one row here per
+-- engine run. Written by the function with the service role (bypasses RLS).
+create table if not exists public.tool_results (
+  id           uuid primary key default gen_random_uuid(),
+  case_ref     text,
+  tool_name    text,
+  tool_version text,
+  score        int,
+  verdict      text,
+  raw_output   jsonb,
+  created_at   timestamptz not null default now()
+);
+create index if not exists tool_results_case_idx on public.tool_results (case_ref);
+
 -- ---------- 5. Row Level Security ----------
 -- Internal team tool: any signed-in analyst can read + create, and
 -- update cases. activity_log gets NO update/delete policy, so combined
@@ -88,7 +103,9 @@ create trigger activity_no_change before update or delete on public.activity_log
 alter table public.clients      enable row level security;
 alter table public.cases        enable row level security;
 alter table public.activity_log enable row level security;
+alter table public.tool_results enable row level security;
 
+create policy "read tool_results" on public.tool_results for select to authenticated using (true);
 create policy "read clients"    on public.clients      for select to authenticated using (true);
 create policy "read cases"      on public.cases        for select to authenticated using (true);
 create policy "read activity"   on public.activity_log for select to authenticated using (true);
