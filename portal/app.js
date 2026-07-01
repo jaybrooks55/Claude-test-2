@@ -614,8 +614,9 @@ var REPORT_FUNCTION = "generate-report";   // builds the court-ready PDF
       analyst:c.analyst, date:fmtDateDMY(c.created_at),
       verdict:displayVerdict(c), score:c.score, file_hash:c.file_hash||null, notes:c.notes||"",
       analyst_verdict:c.analyst_verdict||null, analyst_verdict_reason:c.analyst_verdict_reason||"",
+      engines: Array.isArray(c.engine_results) ? c.engine_results : null,
       activity: state.activity.filter(function(a){ return a.case_reference===c.reference; })
-        .map(function(a){ return { user:a.analyst||"", action:a.action, time:fmtTime(a.created_at) }; })
+        .map(function(a){ return { user:a.analyst||"", action:a.action, time:a.created_at }; })
     };
   }
   function generateReport(id){
