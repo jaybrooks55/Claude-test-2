@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Revlar — Analyst Portal</title>
 <meta name="theme-color" content="#0A1628" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A1628'/%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%2338BDF8' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='4.5' fill='none' stroke='%2338BDF8' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='1.6' fill='%2338BDF8'/%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 124'%3E%3Cdefs%3E%3Cmask id='favmask' maskUnits='userSpaceOnUse' x='0' y='0' width='100' height='124'%3E%3Crect width='100' height='124' fill='%23fff'/%3E%3Cg fill='%23000' stroke='%23000' stroke-width='5' stroke-linejoin='round' stroke-linecap='round'%3E%3Ccircle cx='50' cy='10' r='3.5'/%3E%3Cpath d='M46.5 13 H53.5 V36 H46.5 Z'/%3E%3Cpath d='M50 36.5 L73 38 L77 43.5 L69 40.5 L50 40.8 L31 40.5 L23 43.5 L27 38 Z'/%3E%3Cpath d='M44 41 H56 L54 106 L50 122 L46 106 Z'/%3E%3C/g%3E%3C/mask%3E%3C/defs%3E%3Cpath d='M50 100 C44 95 27 86 22.5 66 C20 52 20 34 21 22 Q28 27 35.5 26 Q43 25 50 22.5 Q57 25 64.5 26 Q72 27 79 22 C80 34 80 52 77.5 66 C73 86 56 95 50 100 Z' fill='none' stroke='%230a0a0a' stroke-width='5' stroke-linejoin='round' stroke-linecap='round' mask='url(%23favmask)'/%3E%3Cg fill='none' stroke='%230a0a0a' stroke-width='5' stroke-linejoin='round' stroke-linecap='round'%3E%3Ccircle cx='50' cy='10' r='3.5'/%3E%3Cpath d='M46.5 13 H53.5 V36 H46.5 Z'/%3E%3Cpath d='M50 36.5 L73 38 L77 43.5 L69 40.5 L50 40.8 L31 40.5 L23 43.5 L27 38 Z'/%3E%3Cpath d='M44 41 H56 L54 106 L50 122 L46 106 Z'/%3E%3C/g%3E%3C/svg%3E" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -14,11 +14,23 @@
 <section id="login">
   <div class="card login-card">
     <div class="login-brand">
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <circle cx="16" cy="16" r="14" stroke="#38BDF8" stroke-width="1.6"/>
-        <circle cx="16" cy="16" r="5.5" stroke="#38BDF8" stroke-width="1.6"/>
-        <path d="M16 2.5V8.5M16 23.5V29.5M2.5 16H8.5M23.5 16H29.5" stroke="#38BDF8" stroke-width="1.6" stroke-linecap="round"/>
-        <circle cx="16" cy="16" r="1.8" fill="#38BDF8"/>
+      <svg width="32" height="40" viewBox="0 0 100 124">
+        <defs><mask id="loginMark" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="124">
+          <rect width="100" height="124" fill="#fff"/>
+          <g fill="#000" stroke="#000" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+            <circle cx="50" cy="10" r="3.5"/>
+            <path d="M46.5 13 H53.5 V36 H46.5 Z"/>
+            <path d="M50 36.5 L73 38 L77 43.5 L69 40.5 L50 40.8 L31 40.5 L23 43.5 L27 38 Z"/>
+            <path d="M44 41 H56 L54 106 L50 122 L46 106 Z"/>
+          </g>
+        </mask></defs>
+        <path d="M50 100 C44 95 27 86 22.5 66 C20 52 20 34 21 22 Q28 27 35.5 26 Q43 25 50 22.5 Q57 25 64.5 26 Q72 27 79 22 C80 34 80 52 77.5 66 C73 86 56 95 50 100 Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" mask="url(#loginMark)"/>
+        <g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+          <circle cx="50" cy="10" r="3.5"/>
+          <path d="M46.5 13 H53.5 V36 H46.5 Z"/>
+          <path d="M50 36.5 L73 38 L77 43.5 L69 40.5 L50 40.8 L31 40.5 L23 43.5 L27 38 Z"/>
+          <path d="M44 41 H56 L54 106 L50 122 L46 106 Z"/>
+        </g>
       </svg>
       <span class="word">REV<b>LAR</b></span>
     </div>
@@ -44,10 +56,23 @@
 <div id="app">
   <aside class="sidebar" id="sidebar">
     <div class="side-brand">
-      <svg width="26" height="26" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <circle cx="16" cy="16" r="14" stroke="#38BDF8" stroke-width="1.8"/>
-        <circle cx="16" cy="16" r="5.5" stroke="#38BDF8" stroke-width="1.8"/>
-        <circle cx="16" cy="16" r="1.8" fill="#38BDF8"/>
+      <svg width="26" height="32" viewBox="0 0 100 124">
+        <defs><mask id="sideMark" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="124">
+          <rect width="100" height="124" fill="#fff"/>
+          <g fill="#000" stroke="#000" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+            <circle cx="50" cy="10" r="3.5"/>
+            <path d="M46.5 13 H53.5 V36 H46.5 Z"/>
+            <path d="M50 36.5 L73 38 L77 43.5 L69 40.5 L50 40.8 L31 40.5 L23 43.5 L27 38 Z"/>
+            <path d="M44 41 H56 L54 106 L50 122 L46 106 Z"/>
+          </g>
+        </mask></defs>
+        <path d="M50 100 C44 95 27 86 22.5 66 C20 52 20 34 21 22 Q28 27 35.5 26 Q43 25 50 22.5 Q57 25 64.5 26 Q72 27 79 22 C80 34 80 52 77.5 66 C73 86 56 95 50 100 Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" mask="url(#sideMark)"/>
+        <g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+          <circle cx="50" cy="10" r="3.5"/>
+          <path d="M46.5 13 H53.5 V36 H46.5 Z"/>
+          <path d="M50 36.5 L73 38 L77 43.5 L69 40.5 L50 40.8 L31 40.5 L23 43.5 L27 38 Z"/>
+          <path d="M44 41 H56 L54 106 L50 122 L46 106 Z"/>
+        </g>
       </svg>
       <span class="word">REV<b>LAR</b></span>
       <span class="pill">PORTAL</span>
