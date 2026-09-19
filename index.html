@@ -575,9 +575,12 @@
   }
   .modal-close:hover { color: var(--text); border-color: var(--cyan); }
 
-  /* ---------- reveal animation ---------- */
-  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
-  .reveal.in { opacity: 1; transform: none; }
+  /* ---------- reveal animation ----------
+     Content is visible by default. Only once JS actually runs (html.js-ready)
+     do .reveal sections hide themselves to animate in on scroll — so a page
+     where the script fails to load/run for any reason still shows everything. */
+  html.js-ready .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+  html.js-ready .reveal.in { opacity: 1; transform: none; }
 
   /* ---------- mobile nav drawer ---------- */
   .mobile-menu {
@@ -1253,6 +1256,11 @@
 <script>
 (function () {
   "use strict";
+
+  // Mark JS as running before anything else — the .reveal hide/animate
+  // behavior only activates under this class, so if this script never runs
+  // (blocked, stripped, errors out), the page simply shows everything as-is.
+  document.documentElement.classList.add("js-ready");
 
   // ---- year ----
   document.getElementById("year").textContent = new Date().getFullYear();
